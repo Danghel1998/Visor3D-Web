@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visor 3D · Residencia Estudiantil I.E. 16722</title>
+<style>
+  :root{
+    --bg:#dfe9f1; --panel:rgba(255,255,255,.94); --ink:#1f2933; --mute:#6b7785; --line:#dde3ea;
+    --acc:#c2412d; --acc2:#8f2d1f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);font:13px/1.35 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;color:var(--ink);overflow:hidden}
+  #app{position:relative;width:100%;height:100%;overflow:hidden}
+  #stage{position:absolute;inset:0}
+  #stage canvas{display:block;width:100%;height:100%;outline:none;touch-action:none}
+
+  #panel{position:absolute;top:10px;left:10px;bottom:10px;width:258px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 6px 24px rgba(20,30,50,.18);display:flex;flex-direction:column;overflow:hidden;
+    transition:transform .25s ease}
+  #panel.hidden{transform:translateX(-280px)}
+  #panel header{padding:11px 14px 9px;border-bottom:1px solid var(--line)}
+  #panel header b{display:block;font-size:14px;letter-spacing:.1px}
+  #panel header span{color:var(--mute);font-size:11.5px}
+  #panel .body{overflow:auto;padding:4px 0 10px;flex:1}
+  details{border-bottom:1px solid var(--line);padding:0 14px}
+  details:last-child{border-bottom:0}
+  summary{cursor:pointer;padding:9px 0;font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase;color:#465464;list-style:none;display:flex;justify-content:space-between}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"▾";color:var(--mute)}
+  details:not([open]) summary::after{content:"▸"}
+  .sec{padding:0 0 10px}
+  label.chk{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;user-select:none}
+  label.chk input{accent-color:var(--acc);margin:0}
+  .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 8px;cursor:pointer;color:var(--ink);text-align:center}
+  button:hover{border-color:#b9c3cf;background:#f6f8fa}
+  button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .row span.k{color:var(--mute);min-width:74px}
+  .row input[type=range]{flex:1;accent-color:var(--acc)}
+  .row output{min-width:38px;text-align:right;font-variant-numeric:tabular-nums;color:#465464}
+
+  #toggle{position:absolute;top:10px;left:10px;z-index:3;width:34px;height:34px;padding:0;border-radius:9px;display:none;
+    box-shadow:0 4px 14px rgba(20,30,50,.18)}
+  #panel.hidden ~ #toggle{display:block}
+  #hide{position:absolute;top:8px;right:8px;width:26px;height:26px;padding:0;border-radius:7px;font-size:12px;line-height:1}
+
+  #compass{position:absolute;right:14px;top:14px;width:58px;height:58px;border-radius:50%;background:var(--panel);
+    border:1px solid var(--line);box-shadow:0 4px 14px rgba(20,30,50,.18)}
+  #compass svg{width:100%;height:100%;transition:transform .05s linear}
+
+  #info{position:absolute;right:14px;top:82px;width:300px;max-width:calc(100% - 300px);background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 6px 24px rgba(20,30,50,.18);padding:12px 14px;display:none}
+  #info h3{margin:0 0 6px;font-size:14px}
+  #info table{border-collapse:collapse;width:100%}
+  #info td{padding:3px 0;vertical-align:top;border-top:1px solid var(--line);font-size:12px}
+  #info td:first-child{color:var(--mute);width:38%;padding-right:8px}
+  #info .x{position:absolute;top:6px;right:8px;border:0;background:none;font-size:16px;color:var(--mute);padding:2px 6px}
+
+  #hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(20,28,40,.72);color:#fff;border-radius:20px;
+    padding:6px 14px;font-size:12px;pointer-events:none;white-space:nowrap;transition:opacity .4s}
+  #panel:not(.hidden) ~ #hint{left:calc(50% + 134px)}
+  #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);font-size:14px;color:#465464;z-index:5}
+  #walkbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:none;background:rgba(20,28,40,.8);color:#fff;
+    border-radius:20px;padding:6px 8px 6px 16px;font-size:12px;align-items:center;gap:12px;z-index:4}
+  #walkbar button{background:#fff;padding:3px 12px;border-radius:14px}
+  #stats{position:absolute;right:14px;bottom:14px;color:#526071;font-size:11px;background:rgba(255,255,255,.7);padding:2px 8px;border-radius:8px}
+  input[type=date],input[type=number]{font:inherit;border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#fff;color:var(--ink);min-width:0}
+  .row input[type=date]{flex:1}
+  select{font:inherit;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fff}
+  button.wide{width:100%;margin-top:8px}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  button.primary:hover{background:var(--acc2);border-color:var(--acc2)}
+  .pb{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+  .pb span{width:62px;color:#465464}
+  .pb .bar{flex:1;height:8px;background:#e8edf2;border-radius:5px;overflow:hidden}
+  .pb .bar i{display:block;height:100%;background:linear-gradient(90deg,#e0863a,#c2412d)}
+  .pb b{width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .pb.tot{border-top:1px solid var(--line);padding-top:6px;margin-top:6px;font-weight:600}
+  #osum{margin-top:6px}
+  #timeline,#realbar{position:absolute;left:284px;right:16px;bottom:14px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 6px 24px rgba(20,30,50,.18);padding:9px 12px;display:none;z-index:2}
+  #panel.hidden ~ #timeline,#panel.hidden ~ #realbar{left:56px}
+  .tl-row{display:flex;align-items:center;gap:10px}
+  .tl-row input[type=range]{flex:1;accent-color:var(--acc)}
+  .tbtn{width:34px;height:30px;padding:0}
+  #tdate{min-width:200px;text-align:right;font-variant-numeric:tabular-nums;color:#33404d;font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{padding:3px 9px;border-radius:14px;font-size:11.5px;display:flex;align-items:center;gap:5px;background:#f2f5f8}
+  .chip.done{background:#e3f3e6;border-color:#bfe0c6}
+  .chip.act{background:#fff1dc;border-color:#f0c58a;font-weight:600}
+  #tnow{margin-top:7px;color:#526071;font-size:12px}
+  #realbar{align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px}
+  #rtxt{flex:1;min-width:260px}
+  .ok{color:#1f7a3d;font-weight:600}.bad{color:#b3261e;font-weight:600}
+  #modal{position:absolute;inset:0;background:rgba(20,28,40,.45);display:none;align-items:center;justify-content:center;z-index:6}
+  #modal .card{position:relative;background:#fff;border-radius:14px;padding:16px 20px 16px;width:min(780px,94%);max-height:92%;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+  #modal h3{margin:0 0 4px;font-size:16px}
+  #modal .x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:20px;color:var(--mute);padding:2px 8px}
+  .mscroll{overflow:auto;margin:8px 0}
+  #mtab{border-collapse:collapse;width:100%}
+  #mtab th,#mtab td{padding:5px 8px;border-bottom:1px solid var(--line);font-size:12.5px;text-align:left;white-space:nowrap}
+  #mtab td input[type=range]{width:96px;accent-color:var(--acc);vertical-align:middle}
+  #mtab output{display:inline-block;width:38px;text-align:right;font-variant-numeric:tabular-nums}
+  #mtab tfoot td{border-top:2px solid var(--line);background:#f8fafb}
+  .mrow{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0}
+  #mnotes{width:100%;height:58px;font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;resize:vertical}
+  .mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <aside id="panel">
+    <header>
+      <b>Residencia estudiantil · I.E. 16722</b>
+      <span>Nuevo Belén, Imaza, Bagua · Amazonas</span>
+      <button id="hide" title="Ocultar panel">◀</button>
+    </header>
+    <div class="body" id="pbody"></div>
+  </aside>
+  <button id="toggle" title="Mostrar panel">☰</button>
+  <div id="compass" title="Norte (según plano de implantación)">
+    <svg viewBox="0 0 60 60"><g id="needle">
+      <polygon points="30,6 35,30 30,27 25,30" fill="#c2412d"/><polygon points="30,54 35,30 30,33 25,30" fill="#9aa5b1"/>
+      <text x="30" y="17" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" transform="translate(0,0)">N</text></g>
+      <circle cx="30" cy="30" r="2" fill="#1f2933"/></svg>
+  </div>
+  <div id="walkbar"><span>Modo caminata · <b>W A S D</b> mover · arrastra para mirar · <b>Shift</b> correr</span><button id="walkexit">Salir</button></div>
+  <div id="timeline"></div>
+  <div id="realbar"></div>
+  <div id="modal"><div class="card" id="mcard"></div></div>
+  <div id="info"><button class="x" id="infox">×</button><h3 id="ititle"></h3><table id="itable"></table></div>
+  <div id="hint">Arrastra para orbitar · clic derecho para desplazar · rueda para acercar · clic en un edificio para ver su ficha</div>
+  <div id="loading">Construyendo modelo 3D…</div>
+</div>
+<script src="js/three.min.js"></script>
+<script src="js/OrbitControls.js"></script>
+<script src="js/visor.js"></script>
+</body>
+</html>
