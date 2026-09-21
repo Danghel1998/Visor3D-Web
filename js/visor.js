@@ -1219,9 +1219,24 @@ check(s3, 'Terreno translúcido (ver cimentación)', false, function (v) { xrayG
 var s4 = section('Corte y ambiente');
 var clipOn = false, clipPlane = new T.Plane(new T.Vector3(0, -1, 0), 2.6);
 var clipSlider = slider(s4, 'Altura', 0.2, 6, 0.05, 2.6, function (v) { return v.toFixed(2) + ' m'; }, function (v) { clipPlane.constant = v; });
-check(s4, 'Corte horizontal (ver interior en planta)', false, function (v) {
-  clipOn = v; renderer.clippingPlanes = v ? [clipPlane] : [];
+var clipVOn = false, clipVPlane = new T.Plane(new T.Vector3(1, 0, 0), -28.19);   // conserva x > xc: se mira la sección desde el oeste
+function applyClip() { renderer.clippingPlanes = (clipOn ? [clipPlane] : []).concat(clipVOn ? [clipVPlane] : []); }
+var clipChk = check(s4, 'Corte horizontal (ver interior en planta)', false, function (v) { clipOn = v; applyClip(); });
+var clipVSlider = slider(s4, 'Sección en X', 0, 60, 0.05, 28.19, function (v) { return v.toFixed(2) + ' m'; }, function (v) { clipVPlane.constant = -v; });
+var clipVChk = check(s4, 'Corte vertical (sección transversal)', false, function (v) { clipVOn = v; applyClip(); });
+var gCut = document.createElement('div'); gCut.className = 'btns'; s4.appendChild(gCut);
+function setClip(chk, on) { chk.checked = on; chk.dispatchEvent(new Event('change')); }
+function setSlider(s, v) { s.value = v; s.dispatchEvent(new Event('input')); }
+/* Módulo SS.HH. mujeres: mundo x 18.83–32.73, z 21.48–25.58 (local ejes 1′–5′ × C–D + posición del dormitorio) */
+btn(gCut, 'Corte SS.HH. mujeres: planta', function () {
+  setSlider(clipSlider, 2.4); setClip(clipChk, true); setClip(clipVChk, false);
+  flyTo(V(25.78, 22, 23.5 + .01), V(25.78, 0, 23.5));
 });
+btn(gCut, 'Corte SS.HH. mujeres: sección', function () {
+  setSlider(clipVSlider, 28.19); setClip(clipChk, false); setClip(clipVChk, true);
+  flyTo(V(15, 6.5, 17), V(28.19, 1.4, 23.5));
+});
+btn(gCut, 'Quitar cortes', function () { setClip(clipChk, false); setClip(clipVChk, false); });
 slider(s4, 'Hora del día', 6, 18, 0.25, 11, function (v) { var h = Math.floor(v), m = Math.round((v - h) * 60); return h + ':' + (m < 10 ? '0' : '') + m; }, setHour);
 check(s4, 'Sombras', true, function (v) { sun.castShadow = v; renderer.shadowMap.needsUpdate = true; scene.traverse(function (o) { if (o.material) o.material.needsUpdate = true; }); });
 check(s4, 'Rotación automática', false, function (v) { controls.autoRotate = v; controls.autoRotateSpeed = 1.2; });
@@ -1282,7 +1297,7 @@ function startWalk(x, z, y) {
   if (walking) return;
   saved = { p: camera.position.clone(), t: controls.target.clone() };
   walking = true; controls.enabled = false; fly = null;
-  clipPlane.constant = 6; renderer.clippingPlanes = [];
+  renderer.clippingPlanes = [];
   camera.position.set(x, 1.65, z); yaw = y; pitch = -.05;
   camera.rotation.order = 'YXZ'; camera.rotation.set(pitch, yaw, 0);
   $('walkbar').style.display = 'flex'; $('hint').style.opacity = 0;
@@ -1292,7 +1307,7 @@ function stopWalk() {
   walking = false; controls.enabled = true;
   camera.rotation.order = 'XYZ';
   camera.position.copy(saved.p); controls.target.copy(saved.t); controls.update();
-  if (clipOn) renderer.clippingPlanes = [clipPlane];
+  applyClip();
   $('walkbar').style.display = 'none';
 }
 $('walkexit').addEventListener('click', stopWalk);
